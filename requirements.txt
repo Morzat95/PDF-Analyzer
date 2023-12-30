@@ -1,0 +1,6 @@
+langchain
+pypdf
+textract
+python-dotenv==1.0.0
+openai
+# tiktoken

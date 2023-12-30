@@ -1,0 +1,57 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Creados por setuptools
+*.egg-info/
+dist/
+build/
+
+# Entorno virtual
+venv/
+env/
+
+# Carpeta de logs
+logs/
+
+# Archivos locales de configuración
+*.ini
+*.cfg
+*.yaml
+*.yml
+
+# Archivos generados por IDEs
+.vscode/
+.idea/
+
+# Archivos de registro
+*.log
+
+# Archivos de caché
+.cache/
+
+# Archivo de base de datos SQLite
+*.sqlite3
+
+# Carpeta de resultados de pruebas
+__pycache__/
+htmlcov/
+
+# Carpeta de compilación de Cython
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Carpeta de compilación de PyInstaller
+dist/
+build/
+
+# Carpeta de compilación de PyOxidizer
+__pycache__/
+dist/
+
+#Variables de entorno
+.env
