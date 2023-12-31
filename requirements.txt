@@ -1,6 +1,12 @@
+streamlit
+pypdf2
 langchain
-pypdf
-textract
-python-dotenv==1.0.0
+python-dotenv
+faiss-cpu
 openai
-# tiktoken
+huggingface_hub
+tiktoken
+
+# Estos dos son para usar un embedding gratuito
+InstructorEmbedding
+sentence_transformers

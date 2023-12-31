@@ -1,46 +1,93 @@
-from langchain.document_loaders import PyPDFLoader # Probar PyPDF2?
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv())
+import streamlit as st
+from dotenv import load_dotenv
+from PyPDF2 import PdfReader
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+from langchain.chat_models import ChatOpenAI
+from htmlTemplates import css, user_template, bot_template
+from langchain.llms import HuggingFaceHub
 
-pdf_path = "./proyecto.pdf"
-loader = PyPDFLoader(pdf_path)
+def get_text_from_pdf(pdf_docs):
+    text = ""
+    for pdf_doc in pdf_docs:
+        pdf_reader = PdfReader(pdf_doc)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    return text
 
-pages = loader.load_and_split()
-text = ""
+def get_text_chunks(raw_text):
+    text_splitter = CharacterTextSplitter(
+        separator="\n",
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len
+    )
 
-for page in pages:
-    text += page.page_content
+    return text_splitter.split_text(raw_text)
 
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=512,
-    chunk_overlap=24,
-    length_function=len,
-    add_start_index=True,
-)
+def get_vectorstore(text_chunks):
+    embeddings = OpenAIEmbeddings()
+    # embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl") # This is for running the model locally
+    return FAISS.from_texts(texts=text_chunks, embedding=embeddings)
 
-texts = text_splitter.create_documents([text])
-print(texts[0])
-print(texts[1])
-print(texts[2])
+def get_conversation_chain(vectorstore):
+    llm = ChatOpenAI()
+    # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature": 0.5, "max_length": 512})
+    memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectorstore.as_retriever(),
+        memory=memory,
+    )
+    return conversation_chain
 
-embeddings_model = OpenAIEmbeddings() # Probar con el modelo free del pibe del video de 1h
-embeddings = embeddings_model.embed_documents(texts)
+def handle_user_input(user_question):
+    response = st.session_state.conversation({'question': user_question})
+    st.session_state.chat_history = response['chat_history']
 
-print("Number of documents embedded", len(embeddings))
-print("dimension of each embedding", len(embeddings[0]))
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
 
-# Usamos textract para 
+def main():
+    load_dotenv()
 
-# # Load the PDF and split it into chunks
-# chunks = langchain.split_pdf(pdf_path)
+    st.set_page_config(page_title="Chat with multriple PDFs", page_icon=":books:")
 
-# # Embed the chunks
-# embedded_chunks = []
-# for chunk in chunks:
-#     embedded_chunk = langchain.embed_text(chunk)
-#     embedded_chunks.append(embedded_chunk)
+    st.write(css, unsafe_allow_html=True)
 
-# # Create a QA Document model
-# qa_model = langchain.create_qa_model(embedded_chunks)
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
+    st.header("Chat with multiple PDFs :books:")
+    user_question = st.text_input("Ask a question about your documents:")
+
+    if user_question:
+        handle_user_input(user_question)
+
+    with st.sidebar:
+        st.subheader("Documents")
+        pdf_docs = st.file_uploader("Upload your PDFs here and click on Process", accept_multiple_files=True)
+        if st.button("Process"):
+            with st.spinner("Processing your documents..."):
+                # Get the text from the PDFs
+                raw_text = get_text_from_pdf(pdf_docs)
+
+                # Get the text chunks
+                text_chunks = get_text_chunks(raw_text)
+
+                # Create vector store
+                vectorstore = get_vectorstore(text_chunks)
+
+                # Create conversation chain
+                st.session_state.conversation = get_conversation_chain(vectorstore)
+
+if __name__ == "__main__":
+    main()
